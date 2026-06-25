@@ -22,8 +22,9 @@ server <- function(input, output, session) {
     df <- raw_data()
     if (is.null(df)) return()
 
-    materias <- sort(unique(df$materia_nombre))
+    materias      <- sort(unique(df$materia_nombre))
     cuatrimestres <- levels(df$cuatrimestre_ord)
+    mat_ord       <- intersect(MATERIA_ORDER, materias)
 
     updateSelectInput(session, "sel_materia",
                       choices  = c("Todas", materias),
@@ -34,27 +35,33 @@ server <- function(input, output, session) {
     updateSelectInput(session, "sel_hasta",
                       choices  = cuatrimestres,
                       selected = cuatrimestres[length(cuatrimestres)])
+    updateSelectizeInput(session, "sel_radar_materias",
+                         choices  = mat_ord,
+                         selected = character(0))
   })
 
-  # ── Datos filtrados ───────────────────────────────────────────────────────────
-  datos_filtrados <- reactive({
+  # ── Datos filtrados por tiempo (para radar overlay, sin filtro de materia) ───
+  datos_temporal <- reactive({
     df <- raw_data()
     if (is.null(df)) return(NULL)
-
     cuats <- levels(df$cuatrimestre_ord)
     desde <- input$sel_desde
     hasta <- input$sel_hasta
-
     if (!is.null(desde) && !is.null(hasta) && desde %in% cuats && hasta %in% cuats) {
       idx_desde <- which(cuats == desde)
       idx_hasta <- which(cuats == hasta)
       cuats_sel <- cuats[seq(min(idx_desde, idx_hasta), max(idx_desde, idx_hasta))]
       df <- df %>% dplyr::filter(cuatrimestre_ord %in% cuats_sel)
     }
+    df
+  })
 
+  # ── Datos filtrados (tiempo + materia) ───────────────────────────────────────
+  datos_filtrados <- reactive({
+    df <- datos_temporal()
+    if (is.null(df)) return(NULL)
     if (!is.null(input$sel_materia) && input$sel_materia != "Todas")
       df <- df %>% dplyr::filter(materia_nombre == input$sel_materia)
-
     df
   })
 
@@ -101,10 +108,11 @@ server <- function(input, output, session) {
 
   # ── Resumen: radar ─────────────────────────────────────────────────────────────
   output$plot_radar <- renderPlotly({
-    df <- datos_filtrados()
+    df <- datos_temporal()
     if (is.null(df) || nrow(df) == 0)
       return(plotly::plot_ly() %>% plotly::layout(title = "Sin datos"))
-    plot_radar(df)
+    overlay <- input$sel_radar_materias
+    plot_radar(df, materias_overlay = if (length(overlay) > 0) overlay else NULL)
   })
 
   output$plot_dim_bar <- renderPlotly({

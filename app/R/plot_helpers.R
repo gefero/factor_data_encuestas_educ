@@ -10,6 +10,23 @@ DIM_COLORS <- c(
   "Balance"            = "#937860"
 )
 
+MATERIA_ORDER <- c(
+  "Proc datos y estadisticas cs",
+  "Metodos Multivariados",
+  "Machine Learning",
+  "Laboratorio de Datos"
+)
+
+# Paleta para el radar overlay (line + fill rgba)
+RADAR_PALETTE <- list(
+  list(line = "#1f77b4", fill = "rgba(31,119,180,0.15)"),
+  list(line = "#ff7f0e", fill = "rgba(255,127,14,0.15)"),
+  list(line = "#2ca02c", fill = "rgba(44,160,44,0.15)"),
+  list(line = "#d62728", fill = "rgba(214,39,40,0.15)"),
+  list(line = "#9467bd", fill = "rgba(148,103,189,0.15)"),
+  list(line = "#8c564b", fill = "rgba(140,86,75,0.15)")
+)
+
 plot_evolucion <- function(scores_df, materia_sel = "Todas") {
   df <- scores_df
   if (materia_sel != "Todas") {
@@ -48,7 +65,11 @@ plot_por_materia <- function(scores_df, dimension_sel = NULL, cuatrimestre_sel =
   df <- df %>%
     dplyr::group_by(materia_nombre, dimension) %>%
     dplyr::summarise(promedio = mean(promedio, na.rm = TRUE),
-                     n_respuestas = sum(n_respuestas), .groups = "drop")
+                     n_respuestas = sum(n_respuestas), .groups = "drop") %>%
+    dplyr::mutate(
+      materia_nombre = factor(materia_nombre,
+                              levels = intersect(MATERIA_ORDER, unique(materia_nombre)))
+    )
 
   plotly::plot_ly(df, x = ~materia_nombre, y = ~promedio, color = ~dimension,
                   colors = DIM_COLORS, type = "bar",
@@ -65,28 +86,65 @@ plot_por_materia <- function(scores_df, dimension_sel = NULL, cuatrimestre_sel =
     )
 }
 
-plot_radar <- function(df_global) {
+.radar_scores <- function(df) {
   dims <- names(DIMENSION_COLS)
-  promedios <- sapply(dims, function(d) {
-    cols <- intersect(DIMENSION_COLS[[d]], colnames(df_global))
+  round(sapply(dims, function(d) {
+    cols <- intersect(DIMENSION_COLS[[d]], colnames(df))
     if (length(cols) == 0) return(NA_real_)
-    mean(unlist(df_global[, cols]), na.rm = TRUE)
-  })
-  promedios <- round(promedios, 2)
-  valid <- !is.na(promedios)
-  if (sum(valid) < 3) return(plotly::plot_ly() %>% plotly::layout(title = "Datos insuficientes"))
+    mean(unlist(df[, cols]), na.rm = TRUE)
+  }), 2)
+}
 
-  plotly::plot_ly(
-    type = "scatterpolar",
-    r = c(promedios[valid], promedios[valid][[1]]),
-    theta = c(dims[valid], dims[valid][[1]]),
-    fill = "toself",
-    fillcolor = "rgba(76,114,176,0.3)",
-    line = list(color = "#4C72B0")
-  ) %>%
+plot_radar <- function(df, materias_overlay = NULL) {
+  dims <- names(DIMENSION_COLS)
+
+  if (is.null(materias_overlay) || length(materias_overlay) == 0) {
+    # Traza global única
+    scores <- .radar_scores(df)
+    valid  <- !is.na(scores)
+    if (sum(valid) < 3) return(plotly::plot_ly() %>% plotly::layout(title = "Datos insuficientes"))
+
+    return(
+      plotly::plot_ly(
+        type = "scatterpolar",
+        r     = c(scores[valid], scores[valid][[1]]),
+        theta = c(dims[valid],   dims[valid][[1]]),
+        fill = "toself", fillcolor = "rgba(76,114,176,0.25)",
+        line = list(color = "#4C72B0"), showlegend = FALSE
+      ) %>%
+        plotly::layout(
+          polar = list(radialaxis = list(visible = TRUE, range = c(0, 5))),
+          showlegend = FALSE
+        )
+    )
+  }
+
+  # Overlay: una traza por materia
+  p <- plotly::plot_ly(type = "scatterpolar")
+  added <- 0L
+  for (mat in materias_overlay) {
+    df_mat <- df %>% dplyr::filter(materia_nombre == mat)
+    if (nrow(df_mat) == 0) next
+    scores <- .radar_scores(df_mat)
+    pal    <- RADAR_PALETTE[[(added %% length(RADAR_PALETTE)) + 1L]]
+    added  <- added + 1L
+    p <- p %>% plotly::add_trace(
+      r         = c(as.numeric(scores), as.numeric(scores)[[1]]),
+      theta     = c(dims, dims[[1]]),
+      name      = mat,
+      fill      = "toself",
+      fillcolor = pal$fill,
+      line      = list(color = pal$line),
+      mode      = "lines+markers"
+    )
+  }
+  if (added == 0L) return(plotly::plot_ly() %>% plotly::layout(title = "Sin datos"))
+
+  p %>%
     plotly::layout(
-      polar = list(radialaxis = list(visible = TRUE, range = c(0, 5))),
-      showlegend = FALSE
+      polar      = list(radialaxis = list(visible = TRUE, range = c(0, 5))),
+      showlegend = TRUE,
+      legend     = list(orientation = "h", y = -0.15)
     )
 }
 

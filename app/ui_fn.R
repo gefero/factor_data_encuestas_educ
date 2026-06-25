@@ -37,7 +37,10 @@ ui <- bslib::page_navbar(
       column(6,
         bslib::card(
           bslib::card_header("Radar por dimensión"),
-          plotlyOutput("plot_radar", height = "350px")
+          selectizeInput("sel_radar_materias", NULL,
+                         choices = NULL, multiple = TRUE,
+                         options = list(placeholder = "Global — seleccioná materias para superponer")),
+          plotlyOutput("plot_radar", height = "320px")
         )
       ),
       column(6,
