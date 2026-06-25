@@ -1,0 +1,22 @@
+.value-box .value-box-value {
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+.card-header {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.sidebar .form-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.nav-item .nav-link {
+  font-size: 0.9rem;
+}
+
+.dataTables_wrapper {
+  font-size: 0.85rem;
+}
