@@ -99,6 +99,11 @@ ui <- bslib::page_navbar(
       column(4,
         selectInput("sel_texto_col", "Columna de texto:",
                     choices = setNames(names(TEXTO_COLS_LABELS), TEXTO_COLS_LABELS))
+      ),
+      column(3,
+        radioButtons("sel_ngram", "Tipo de término:",
+                     choices = c("Unigramas" = "uni", "Bigramas" = "bi"),
+                     inline = TRUE)
       )
     ),
     bslib::navset_tab(

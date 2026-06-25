@@ -159,7 +159,8 @@ server <- function(input, output, session) {
     df  <- datos_filtrados()
     col <- input$sel_texto_col
     if (is.null(df) || is.null(col)) return(NULL)
-    prepare_text_cloud(df, col)
+    use_bi <- isTRUE(input$sel_ngram == "bi")
+    prepare_text_cloud(df, col, use_bigrams = use_bi)
   })
 
   output$plot_wordcloud <- renderWordcloud2({

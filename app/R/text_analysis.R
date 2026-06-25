@@ -24,29 +24,45 @@ STOPWORDS_ES <- c(
   "curso", "cursada", "siempre", "nunca"
 )
 
-prepare_text_cloud <- function(df, col_name, extra_stopwords = character(0)) {
+ACCENT_MAP_TEXT <- c(
+  "á"="a","à"="a","é"="e","è"="e","í"="i","ì"="i",
+  "ó"="o","ò"="o","ú"="u","ù"="u","ñ"="n",
+  "ä"="a","ë"="e","ï"="i","ö"="o","ü"="u"
+)
+
+clean_tokens <- function(textos, all_stop) {
+  textos %>%
+    stringr::str_to_lower() %>%
+    stringr::str_replace_all(ACCENT_MAP_TEXT) %>%
+    stringr::str_replace_all("[^a-z\\s]", " ") %>%
+    stringr::str_squish() %>%
+    stringr::str_split("\\s+") %>%
+    lapply(function(ws) ws[nchar(ws) >= 3 & !ws %in% all_stop])
+}
+
+prepare_text_cloud <- function(df, col_name, extra_stopwords = character(0),
+                               use_bigrams = FALSE) {
   if (!col_name %in% colnames(df)) return(data.frame(word = character(), freq = integer()))
 
   textos <- df[[col_name]]
   textos <- textos[!is.na(textos) & nchar(trimws(textos)) > 2]
   if (length(textos) == 0) return(data.frame(word = character(), freq = integer()))
 
-  all_stop <- c(STOPWORDS_ES, extra_stopwords)
+  all_stop  <- c(STOPWORDS_ES, extra_stopwords)
+  tok_list  <- clean_tokens(textos, all_stop)
 
-  palabras <- textos %>%
-    stringr::str_to_lower() %>%
-    stringr::str_replace_all(c(
-      "á"="a","à"="a","é"="e","è"="e","í"="i","ì"="i",
-      "ó"="o","ò"="o","ú"="u","ù"="u","ñ"="n",
-      "ä"="a","ë"="e","ï"="i","ö"="o","ü"="u"
-    )) %>%
-    stringr::str_replace_all("[^a-z\\s]", " ") %>%
-    stringr::str_split("\\s+") %>%
-    unlist()
+  terminos <- if (!use_bigrams) {
+    unlist(tok_list)
+  } else {
+    unlist(lapply(tok_list, function(ws) {
+      if (length(ws) < 2) return(character(0))
+      paste(ws[-length(ws)], ws[-1])
+    }))
+  }
 
-  palabras <- palabras[nchar(palabras) >= 3 & !palabras %in% all_stop]
+  if (length(terminos) == 0) return(data.frame(word = character(), freq = integer()))
 
-  freq_tbl <- sort(table(palabras), decreasing = TRUE)
+  freq_tbl <- sort(table(terminos), decreasing = TRUE)
   data.frame(
     word = names(freq_tbl),
     freq = as.integer(freq_tbl),

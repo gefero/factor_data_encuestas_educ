@@ -76,6 +76,22 @@ load_all_excel <- function(path = "./data/raw/") {
   normalize_data(combined)
 }
 
+MATERIA_CANONICAL <- list(
+  "Laboratorio de Datos"  = "labo.*dato|laboratorio.*dato",
+  "Machine Learning"      = "machine.learning",
+  "Metodos Multivariados" = "multivaria|met.*analisis|metodo.*analisis"
+)
+
+normalize_materia <- function(x) {
+  xn <- stringr::str_to_lower(stringr::str_replace_all(x, ACCENT_MAP))
+  result <- x
+  for (canonical in names(MATERIA_CANONICAL)) {
+    pat <- MATERIA_CANONICAL[[canonical]]
+    result <- ifelse(grepl(pat, xn), canonical, result)
+  }
+  result
+}
+
 normalize_data <- function(df) {
   likert_cols <- c(
     "plan_programa", "plan_coherencia", "plan_tiempo", "plan_campus",
@@ -90,6 +106,7 @@ normalize_data <- function(df) {
 
   df <- df %>%
     dplyr::mutate(
+      materia_nombre = normalize_materia(materia_nombre),
       dplyr::across(dplyr::all_of(existing_likert), parse_likert),
       situacion_cat = dplyr::case_when(
         grepl("^1-", situacion_estudiante) ~ "Finalizo cursada",
