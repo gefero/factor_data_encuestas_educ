@@ -107,12 +107,30 @@ server <- function(input, output, session) {
   })
 
   # ── Resumen: radar ─────────────────────────────────────────────────────────────
+  # Sincronizar choices del overlay: excluir la materia ya seleccionada en sidebar
+  observe({
+    sel_mat <- input$sel_materia
+    df <- raw_data()
+    if (is.null(df)) return()
+    mat_ord <- intersect(MATERIA_ORDER, unique(df$materia_nombre))
+    if (!is.null(sel_mat) && sel_mat != "Todas")
+      mat_ord <- setdiff(mat_ord, sel_mat)
+    updateSelectizeInput(session, "sel_radar_materias",
+                         choices  = mat_ord,
+                         selected = intersect(input$sel_radar_materias, mat_ord))
+  })
+
   output$plot_radar <- renderPlotly({
     df <- datos_temporal()
     if (is.null(df) || nrow(df) == 0)
       return(plotly::plot_ly() %>% plotly::layout(title = "Sin datos"))
+    sel_mat <- input$sel_materia
     overlay <- input$sel_radar_materias
-    plot_radar(df, materias_overlay = if (length(overlay) > 0) overlay else NULL)
+    mats <- if (!is.null(sel_mat) && sel_mat != "Todas")
+      unique(c(sel_mat, overlay))   # materia del sidebar primero, luego las extra
+    else
+      if (length(overlay) > 0) overlay else NULL
+    plot_radar(df, materias_overlay = mats)
   })
 
   output$plot_dim_bar <- renderPlotly({
