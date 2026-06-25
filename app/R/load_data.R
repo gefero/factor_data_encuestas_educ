@@ -94,13 +94,7 @@ normalize_materia <- function(x) {
 
 # Valores literales que los estudiantes escriben para indicar "no respondí"
 SENTINELS_REGEX <- paste0("^(", paste(c(
-  "sin respuesta", "nan",
-  "s/r", "sr",
-  "ninguno\\.?", "ninguna\\.?", "ninguno/a\\.?",
-  "nada\\.?", "nada en particular\\.?",
-  "no hubo\\.?", "no hubieron\\.?",
-  "no se me ocurre\\.?", "no tiene\\.?",
-  "creo que nada\\.?"
+  "sin respuesta", "nan"
 ), collapse = "|"), ")$")
 
 replace_sentinels <- function(x) {
