@@ -40,54 +40,34 @@ clean_tokens <- function(textos, all_stop) {
     lapply(function(ws) ws[nchar(ws) >= 3 & !ws %in% all_stop])
 }
 
-# TF-IDF scores summed across documents.
-# tok_list: list of character vectors (one per document), already filtered.
-# Returns named numeric vector sorted by score descending.
-compute_tfidf_scores <- function(tok_list) {
-  N <- length(tok_list)
-  if (N == 0) return(setNames(numeric(0), character(0)))
-
-  rows <- do.call(rbind, lapply(seq_along(tok_list), function(i) {
-    ws <- tok_list[[i]]
-    if (length(ws) == 0) return(NULL)
-    tbl <- table(ws)
-    data.frame(doc_id = i, term = names(tbl),
-               tf = as.numeric(tbl) / length(ws),
-               stringsAsFactors = FALSE)
-  }))
-  if (is.null(rows) || nrow(rows) == 0) return(setNames(numeric(0), character(0)))
-
-  df_counts  <- tapply(rows$doc_id, rows$term, function(x) length(unique(x)))
-  idf        <- log((N + 1) / (df_counts + 1)) + 1    # sklearn-style smoothed IDF
-  rows$tfidf <- rows$tf * idf[rows$term]
-
-  sort(tapply(rows$tfidf, rows$term, sum), decreasing = TRUE)
-}
-
 prepare_text_cloud <- function(df, col_name, extra_stopwords = character(0),
                                use_bigrams = FALSE) {
-  if (!col_name %in% colnames(df)) return(data.frame(word = character(), freq = numeric()))
+  if (!col_name %in% colnames(df)) return(data.frame(word = character(), freq = integer()))
 
   textos <- df[[col_name]]
   textos <- textos[!is.na(textos) & nchar(trimws(textos)) > 2]
-  if (length(textos) == 0) return(data.frame(word = character(), freq = numeric()))
+  if (length(textos) == 0) return(data.frame(word = character(), freq = integer()))
 
-  all_stop <- c(STOPWORDS_ES, extra_stopwords)
-  tok_list <- clean_tokens(textos, all_stop)
+  all_stop  <- c(STOPWORDS_ES, extra_stopwords)
+  tok_list  <- clean_tokens(textos, all_stop)
 
-  term_list <- if (!use_bigrams) {
-    tok_list
+  terminos <- if (!use_bigrams) {
+    unlist(tok_list)
   } else {
-    lapply(tok_list, function(ws) {
+    unlist(lapply(tok_list, function(ws) {
       if (length(ws) < 2) return(character(0))
       paste(ws[-length(ws)], ws[-1])
-    })
+    }))
   }
 
-  scores <- compute_tfidf_scores(term_list)
-  if (length(scores) == 0) return(data.frame(word = character(), freq = numeric()))
+  if (length(terminos) == 0) return(data.frame(word = character(), freq = integer()))
 
-  data.frame(word = names(scores), freq = as.numeric(scores), stringsAsFactors = FALSE)
+  freq_tbl <- sort(table(terminos), decreasing = TRUE)
+  data.frame(
+    word = names(freq_tbl),
+    freq = as.integer(freq_tbl),
+    stringsAsFactors = FALSE
+  )
 }
 
 compute_sentiment <- function(df, col_name, group_vars = "cuatrimestre_ord") {
@@ -95,62 +75,32 @@ compute_sentiment <- function(df, col_name, group_vars = "cuatrimestre_ord") {
   if (!col_name %in% colnames(df)) return(NULL)
 
   df_text <- df %>%
-    dplyr::filter(!is.na(.data[[col_name]]), nchar(trimws(.data[[col_name]])) > 2)
+    dplyr::filter(!is.na(.data[[col_name]]), nchar(trimws(.data[[col_name]])) > 2) %>%
+    dplyr::select(dplyr::all_of(c(group_vars, col_name)))
+
   if (nrow(df_text) == 0) return(NULL)
 
-  nrc <- tryCatch(
-    syuzhet::get_sentiment_dictionary("nrc", language = "spanish"),
+  sentimientos <- tryCatch(
+    syuzhet::get_nrc_sentiment(df_text[[col_name]], language = "spanish"),
     error = function(e) NULL
   )
-  if (is.null(nrc)) return(NULL)
+  if (is.null(sentimientos)) return(NULL)
 
-  emociones <- c("positive", "negative", "anger", "fear", "joy",
-                 "sadness", "surprise", "trust", "anticipation", "disgust")
-  nrc_cols <- intersect(emociones, colnames(nrc))
-  word_col <- colnames(nrc)[vapply(nrc, is.character, logical(1))][1]
+  emociones_principales <- c("positive", "negative", "anger", "fear", "joy",
+                              "sadness", "surprise", "trust", "anticipation", "disgust")
+  cols_sent <- intersect(emociones_principales, colnames(sentimientos))
 
-  textos   <- df_text[[col_name]]
-  tok_list <- clean_tokens(textos, STOPWORDS_ES)
-  N        <- length(tok_list)
-
-  # Build per-document TF-IDF table
-  rows <- do.call(rbind, lapply(seq_along(tok_list), function(i) {
-    ws <- tok_list[[i]]
-    if (length(ws) == 0) return(NULL)
-    tbl <- table(ws)
-    data.frame(doc_id = i, term = names(tbl),
-               tf = as.numeric(tbl) / length(ws),
-               stringsAsFactors = FALSE)
-  }))
-  if (is.null(rows) || nrow(rows) == 0) return(NULL)
-
-  df_counts  <- tapply(rows$doc_id, rows$term, function(x) length(unique(x)))
-  idf        <- log((N + 1) / (df_counts + 1)) + 1
-  rows$tfidf <- rows$tf * idf[rows$term]
-
-  # Join TF-IDF table with NRC lexicon (only rows with at least one emotion)
-  nrc_sub <- nrc[rowSums(nrc[, nrc_cols, drop = FALSE]) > 0,
-                 c(word_col, nrc_cols), drop = FALSE]
-  matched <- merge(rows, nrc_sub, by.x = "term", by.y = word_col, all.x = FALSE)
-  if (nrow(matched) == 0) return(NULL)
-
-  # Accumulate TF-IDF-weighted emotion scores into a doc × emotion matrix
-  doc_emo <- matrix(0, nrow = N, ncol = length(nrc_cols),
-                    dimnames = list(seq_len(N), nrc_cols))
-  for (em in nrc_cols) {
-    agg <- tapply(matched$tfidf * matched[[em]], matched$doc_id, sum)
-    doc_emo[as.integer(names(agg)), em] <- agg
-  }
-
-  dplyr::bind_cols(df_text[group_vars], as.data.frame(doc_emo)) %>%
+  dplyr::bind_cols(df_text[group_vars], sentimientos[, cols_sent, drop = FALSE]) %>%
     dplyr::group_by(dplyr::across(dplyr::all_of(group_vars))) %>%
     dplyr::summarise(
-      dplyr::across(dplyr::all_of(nrc_cols), ~ mean(.x, na.rm = TRUE)),
+      dplyr::across(dplyr::all_of(cols_sent), ~ mean(.x, na.rm = TRUE)),
       n = dplyr::n(),
       .groups = "drop"
     ) %>%
     tidyr::pivot_longer(
-      cols = dplyr::all_of(nrc_cols), names_to = "emocion", values_to = "score"
+      cols = dplyr::all_of(cols_sent),
+      names_to = "emocion",
+      values_to = "score"
     ) %>%
     dplyr::mutate(
       emocion_es = dplyr::case_when(
