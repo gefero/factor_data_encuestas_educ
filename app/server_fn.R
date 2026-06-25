@@ -178,7 +178,7 @@ server <- function(input, output, session) {
                     type = "bar", orientation = "h",
                     marker = list(color = "#4C72B0")) %>%
       plotly::layout(
-        xaxis = list(title = "Frecuencia"),
+        xaxis = list(title = "TF-IDF"),
         yaxis = list(title = ""),
         margin = list(l = 120)
       )
