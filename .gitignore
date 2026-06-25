@@ -1,0 +1,123 @@
+# =======================
+# Python
+# =======================
+
+# Bytecode y caché
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.pyd
+
+# Entornos virtuales
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Distribución y empaquetado
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# pytest
+.pytest_cache/
+.cache/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# mypy / pyright / type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+.pyre/
+
+# Archivos de configuración locales
+.python-version
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Profiling
+*.prof
+
+# =======================
+# R
+# =======================
+
+# Historial y datos de sesión
+.Rhistory
+.RData
+.Rproj.user/
+.Ruserdata
+
+# Archivos de proyecto de RStudio
+*.Rproj
+
+# Caché de knitr / rmarkdown
+cache/
+*_cache/
+/cache/
+*.knit.md
+*.utf8.md
+
+# Directorio de salida de packrat
+packrat/lib*/
+packrat/src/
+
+# renv (manejo de dependencias)
+renv/library/
+renv/python/
+renv/staging/
+.renv/
+
+# Archivos temporales de R
+*.Rout
+*.Rout.fail
+
+# Documentación generada por roxygen2
+/man/*.Rd
+NAMESPACE
+
+# Artefactos de construcción de paquetes
+*.tar.gz
+*.zip
+
+# =======================
+# General
+# =======================
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Archivos de log
+*.log
+
+# Variables de entorno y secretos
+.env
+.env.*
+secrets.*
+*.key
+
+# Archivos temporales
+*.tmp
+*.temp
+*.swp
+*~
