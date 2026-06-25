@@ -92,7 +92,29 @@ normalize_materia <- function(x) {
   result
 }
 
+# Valores literales que los estudiantes escriben para indicar "no respondí"
+SENTINELS_REGEX <- paste0("^(", paste(c(
+  "sin respuesta", "nan",
+  "s/r", "sr",
+  "ninguno\\.?", "ninguna\\.?", "ninguno/a\\.?",
+  "nada\\.?", "nada en particular\\.?",
+  "no hubo\\.?", "no hubieron\\.?",
+  "no se me ocurre\\.?", "no tiene\\.?",
+  "creo que nada\\.?"
+), collapse = "|"), ")$")
+
+replace_sentinels <- function(x) {
+  is_sentinel <- grepl(SENTINELS_REGEX, trimws(tolower(x)))
+  ifelse(is_sentinel, NA_character_, x)
+}
+
 normalize_data <- function(df) {
+  texto_cols <- intersect(
+    c("texto_docente", "texto_positivos", "texto_negativos",
+      "texto_aprendiste", "texto_recomendaciones"),
+    colnames(df)
+  )
+
   likert_cols <- c(
     "plan_programa", "plan_coherencia", "plan_tiempo", "plan_campus",
     "cont_relacion", "cont_ejemplos", "cont_bibliografia",
@@ -103,6 +125,9 @@ normalize_data <- function(df) {
     "bal_aprendizaje", "bal_eleccion"
   )
   existing_likert <- intersect(likert_cols, colnames(df))
+
+  if (length(texto_cols) > 0)
+    df <- df %>% dplyr::mutate(dplyr::across(dplyr::all_of(texto_cols), replace_sentinels))
 
   df <- df %>%
     dplyr::mutate(

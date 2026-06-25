@@ -21,7 +21,12 @@ STOPWORDS_ES <- c(
   "sean", "ha", "cada", "mejor", "ser", "mucho", "bien", "tiene",
   "creo", "puede", "hacer", "asi", "buena", "bueno", "materia",
   "docente", "german", "rosati", "catedra", "clase", "clases",
-  "curso", "cursada", "siempre", "nunca"
+  "curso", "cursada", "siempre", "nunca",
+  # pronombres/adverbios funcionales sin valor semántico en wordcloud
+  "tan", "nan", "sea", "mismo", "misma", "igual",
+  "ninguno", "ninguna", "nada",
+  "este", "esta", "estos", "estas",   # demostrativos
+  "tener", "tuve", "tipo"             # verbos/sustantivos genéricos
 )
 
 ACCENT_MAP_TEXT <- c(
